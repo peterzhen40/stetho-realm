@@ -24,16 +24,16 @@ import io.realm.internal.Table;
 
 public class RealmPeerManager extends ChromePeerManager {
     private static final String TABLE_PREFIX = "class_"; // Realm#TABLE_PREFIX
-
+    private static final Pattern SELECT_PATTERN = Pattern.compile("SELECT[ \\t]+rowid,[ \\t]+\\*[ \\t]+FROM \"([^\"]+)\"");
     private final String packageName;
     private final RealmFilesProvider realmFilesProvider;
     private byte[] defaultEncryptionKey;
     private Map<String, byte[]> encryptionKeys;
 
     public RealmPeerManager(String packageName,
-            RealmFilesProvider filesProvider,
-            byte[] defaultEncryptionKey,
-            Map<String, byte[]> encryptionKeys) {
+                            RealmFilesProvider filesProvider,
+                            byte[] defaultEncryptionKey,
+                            Map<String, byte[]> encryptionKeys) {
         this.packageName = packageName;
         this.realmFilesProvider = filesProvider;
         this.defaultEncryptionKey = defaultEncryptionKey;
@@ -49,6 +49,23 @@ public class RealmPeerManager extends ChromePeerManager {
             public void onPeerUnregistered(JsonRpcPeer peer) {
             }
         });
+    }
+
+    /**
+     * Attempt to smartly eliminate uninteresting shadow databases such as -journal and -uid.  Note
+     * that this only removes the database if it is true that it shadows another database lacking
+     * the uninteresting suffix.
+     *
+     * @param databaseFiles Raw list of database files.
+     * @return Tidied list with shadow databases removed.
+     */
+    // @VisibleForTesting
+    static List<File> tidyDatabaseList(List<File> databaseFiles) {
+        List<File> tidiedList = new ArrayList<>();
+        for (File databaseFile : databaseFiles) {
+            tidiedList.add(databaseFile);
+        }
+        return tidiedList;
     }
 
     public List<String> getDatabaseTableNames(String databaseId, boolean withMetaTables) {
@@ -86,25 +103,6 @@ public class RealmPeerManager extends ChromePeerManager {
         }
     }
 
-    /**
-     * Attempt to smartly eliminate uninteresting shadow databases such as -journal and -uid.  Note
-     * that this only removes the database if it is true that it shadows another database lacking
-     * the uninteresting suffix.
-     *
-     * @param databaseFiles Raw list of database files.
-     * @return Tidied list with shadow databases removed.
-     */
-    // @VisibleForTesting
-    static List<File> tidyDatabaseList(List<File> databaseFiles) {
-        List<File> tidiedList = new ArrayList<>();
-        for (File databaseFile : databaseFiles) {
-            tidiedList.add(databaseFile);
-        }
-        return tidiedList;
-    }
-
-    private static final Pattern SELECT_PATTERN = Pattern.compile("SELECT[ \\t]+rowid,[ \\t]+\\*[ \\t]+FROM \"([^\"]+)\"");
-
     public <T> T executeSQL(String databaseId, String query, RealmPeerManager.ExecuteResultHandler<T> executeResultHandler) {
         final SharedRealm sharedRealm = openSharedRealm(databaseId);
         //noinspection TryWithIdenticalCatches,TryFinallyCanBeTryWithResources
@@ -131,7 +129,7 @@ public class RealmPeerManager extends ChromePeerManager {
     }
 
     private SharedRealm openSharedRealm(String databaseId,
-            @Nullable OsRealmConfig.Durability durability) {
+                                        @Nullable OsRealmConfig.Durability durability) {
         final byte[] encryptionKey = getEncryptionKey(databaseId);
 
         final RealmConfiguration.Builder builder = new RealmConfiguration.Builder();
@@ -147,7 +145,8 @@ public class RealmPeerManager extends ChromePeerManager {
         }
 
         try {
-            return SharedRealm.getInstance(builder.build());
+            return SharedRealm.getInstance(builder
+                    .build());
         } catch (RealmError e) {
             if (durability == null) {
                 // Durability 未指定でRealmErrorが出た時は、MEM_ONLY も試してみる
