@@ -1,1 +1,1 @@
-include ':stetho_realm'
+include ':stetho_realm', ':sample'
