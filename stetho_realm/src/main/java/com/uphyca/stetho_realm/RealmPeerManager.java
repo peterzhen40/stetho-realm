@@ -18,7 +18,7 @@ import javax.annotation.Nullable;
 import io.realm.RealmConfiguration;
 import io.realm.exceptions.RealmError;
 import io.realm.internal.OsRealmConfig;
-import io.realm.internal.SharedRealm;
+import io.realm.internal.OsSharedRealm;
 import io.realm.internal.Table;
 
 
@@ -71,7 +71,7 @@ public class RealmPeerManager extends ChromePeerManager {
     public List<String> getDatabaseTableNames(String databaseId, boolean withMetaTables) {
         final List<String> tableNames = new ArrayList<>();
 
-        final SharedRealm sharedRealm = openSharedRealm(databaseId);
+        final OsSharedRealm sharedRealm = openSharedRealm(databaseId);
         //noinspection TryWithIdenticalCatches,TryFinallyCanBeTryWithResources
         try {
             for (int i = 0; i < sharedRealm.size(); i++) {
@@ -104,7 +104,7 @@ public class RealmPeerManager extends ChromePeerManager {
     }
 
     public <T> T executeSQL(String databaseId, String query, RealmPeerManager.ExecuteResultHandler<T> executeResultHandler) {
-        final SharedRealm sharedRealm = openSharedRealm(databaseId);
+        final OsSharedRealm sharedRealm = openSharedRealm(databaseId);
         //noinspection TryWithIdenticalCatches,TryFinallyCanBeTryWithResources
         try {
             query = query.trim();
@@ -124,11 +124,11 @@ public class RealmPeerManager extends ChromePeerManager {
         }
     }
 
-    private SharedRealm openSharedRealm(String databaseId) {
+    private OsSharedRealm openSharedRealm(String databaseId) {
         return openSharedRealm(databaseId, null);
     }
 
-    private SharedRealm openSharedRealm(String databaseId,
+    private OsSharedRealm openSharedRealm(String databaseId,
                                         @Nullable OsRealmConfig.Durability durability) {
         final byte[] encryptionKey = getEncryptionKey(databaseId);
 
@@ -145,13 +145,13 @@ public class RealmPeerManager extends ChromePeerManager {
         }
 
         try {
-            return SharedRealm.getInstance(builder
+            return OsSharedRealm.getInstance(builder
                     .build());
         } catch (RealmError e) {
             if (durability == null) {
                 // Durability 未指定でRealmErrorが出た時は、MEM_ONLY も試してみる
                 builder.inMemory();
-                return SharedRealm.getInstance(builder.build());
+                return OsSharedRealm.getInstance(builder.build());
             }
             throw e;
         }
