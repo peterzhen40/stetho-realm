@@ -61,7 +61,7 @@ public class RealmInspectorModulesProvider implements InspectorModulesProvider {
             InspectorModulesProvider provider,
             boolean withMetaTables,
             Pattern databaseNamePattern) {
-        return new RealmInspectorModulesProvider(context.getPackageName(), provider, context.getFilesDir(), withMetaTables, databaseNamePattern, DEFAULT_LIMIT, DEFAULT_ASCENDING_ORDER, null, null);
+        return new RealmInspectorModulesProvider(context.getPackageName(), provider, context.getFilesDir(), withMetaTables, databaseNamePattern, DEFAULT_LIMIT, DEFAULT_ASCENDING_ORDER, null, null, false);
     }
 
     private final String packageName;
@@ -73,6 +73,7 @@ public class RealmInspectorModulesProvider implements InspectorModulesProvider {
     private final boolean ascendingOrder;
     private byte[] defaultEncryptionKey;
     private Map<String, byte[]> encryptionKeys;
+    private boolean isDeleteIfMigrationNeededEnabled;
 
     private RealmInspectorModulesProvider(String packageName,
             InspectorModulesProvider baseProvider,
@@ -82,7 +83,8 @@ public class RealmInspectorModulesProvider implements InspectorModulesProvider {
             long limit,
             boolean ascendingOrder,
             byte[] defaultEncryptionKey,
-            Map<String, byte[]> encryptionKeys) {
+            Map<String, byte[]> encryptionKeys,
+            boolean isDeleteIfMigrationNeededEnabled) {
         this.packageName = packageName;
         this.baseProvider = baseProvider;
         this.folder = folder;
@@ -96,6 +98,7 @@ public class RealmInspectorModulesProvider implements InspectorModulesProvider {
         this.ascendingOrder = ascendingOrder;
         this.defaultEncryptionKey = defaultEncryptionKey;
         this.encryptionKeys = encryptionKeys == null ? Collections.<String, byte[]>emptyMap() : encryptionKeys;
+        this.isDeleteIfMigrationNeededEnabled = isDeleteIfMigrationNeededEnabled;
     }
 
     @Override
@@ -116,7 +119,8 @@ public class RealmInspectorModulesProvider implements InspectorModulesProvider {
                 limit,
                 ascendingOrder,
                 defaultEncryptionKey,
-                encryptionKeys);
+                encryptionKeys,
+                isDeleteIfMigrationNeededEnabled);
         modules.add(database == null ? realmDatabase : new com.uphyca.stetho_realm.delegate.Database(database, realmDatabase, databaseNamePattern));
         return modules;
     }
@@ -137,6 +141,7 @@ public class RealmInspectorModulesProvider implements InspectorModulesProvider {
         private boolean ascendingOrder = DEFAULT_ASCENDING_ORDER;
         private byte[] defaultEncryptionKey;
         private Map<String, byte[]> encryptionKeys;
+        private boolean isDeleteIfMigrationNeededEnabled = false;
 
         public ProviderBuilder(Context context) {
             applicationContext = context.getApplicationContext();
@@ -165,6 +170,11 @@ public class RealmInspectorModulesProvider implements InspectorModulesProvider {
 
         public ProviderBuilder withDescendingOrder() {
             this.ascendingOrder = false;
+            return this;
+        }
+
+        public ProviderBuilder withDeleteIfMigrationNeeded(boolean isDeleteIfMigrationNeededEnabled) { // TODO: why not just take the RealmConfiguration as an argument?!
+            this.isDeleteIfMigrationNeededEnabled = isDeleteIfMigrationNeededEnabled;
             return this;
         }
 
@@ -221,7 +231,8 @@ public class RealmInspectorModulesProvider implements InspectorModulesProvider {
                     limit,
                     ascendingOrder,
                     defaultEncryptionKey,
-                    encryptionKeys);
+                    encryptionKeys,
+                    isDeleteIfMigrationNeededEnabled);
         }
     }
 }
