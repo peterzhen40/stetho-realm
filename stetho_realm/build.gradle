@@ -63,3 +63,7 @@ publish {
     issueTracker = 'https://github.com/uPhyca/stetho-realm/issues'
     repository = 'https://github.com/uPhyca/stetho-realm.git'
 }
+
+tasks.withType(Javadoc) {
+    options.encoding = 'UTF-8'
+}
