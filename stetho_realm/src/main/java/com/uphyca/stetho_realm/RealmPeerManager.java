@@ -29,15 +29,18 @@ public class RealmPeerManager extends ChromePeerManager {
     private final RealmFilesProvider realmFilesProvider;
     private byte[] defaultEncryptionKey;
     private Map<String, byte[]> encryptionKeys;
+    private boolean isDeleteIfMigrationNeededEnabled;
 
     public RealmPeerManager(String packageName,
                             RealmFilesProvider filesProvider,
                             byte[] defaultEncryptionKey,
-                            Map<String, byte[]> encryptionKeys) {
+                            Map<String, byte[]> encryptionKeys,
+                            boolean isDeleteIfMigrationNeededEnabled) {
         this.packageName = packageName;
         this.realmFilesProvider = filesProvider;
         this.defaultEncryptionKey = defaultEncryptionKey;
         this.encryptionKeys = encryptionKeys;
+        this.isDeleteIfMigrationNeededEnabled = isDeleteIfMigrationNeededEnabled;
 
         setListener(new PeerRegistrationListener() {
             @Override
@@ -142,6 +145,10 @@ public class RealmPeerManager extends ChromePeerManager {
         }
         if (encryptionKey != null) {
             builder.encryptionKey(encryptionKey);
+        }
+
+        if (isDeleteIfMigrationNeededEnabled) {
+            builder.deleteRealmIfMigrationNeeded();
         }
 
         try {

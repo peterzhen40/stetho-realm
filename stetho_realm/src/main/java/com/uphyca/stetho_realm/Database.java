@@ -29,7 +29,9 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
+import io.realm.RealmFieldType;
 import io.realm.internal.OsList;
+import io.realm.internal.Property;
 import io.realm.internal.Row;
 import io.realm.internal.Table;
 
@@ -44,31 +46,48 @@ public class Database implements ChromeDevtoolsDomain {
     private final boolean withMetaTables;
     private final long limit;
     private final boolean ascendingOrder;
+    private boolean isDeleteIfMigrationNeededEnabled;
 
     private DateFormat dateTimeFormatter;
 
     private enum StethoRealmFieldType {
-        INTEGER(0),
-        BOOLEAN(1),
-        STRING(2),
-        BINARY(4),
+        INTEGER(RealmFieldType.INTEGER),
+        BOOLEAN(RealmFieldType.BOOLEAN),
+        STRING(RealmFieldType.STRING),
+        BINARY(RealmFieldType.BINARY),
         UNSUPPORTED_TABLE(5),
         UNSUPPORTED_MIXED(6),
-        OLD_DATE(7),
-        DATE(8),
-        FLOAT(9),
-        DOUBLE(10),
-        OBJECT(12),
-        LIST(13),
-        // BACKLINK(14); Not exposed until needed
+        UNSUPPORTED_DATE(7),
+        DATE(RealmFieldType.DATE),
+        FLOAT(RealmFieldType.FLOAT),
+        DOUBLE(RealmFieldType.DOUBLE),
+        OBJECT(RealmFieldType.OBJECT),
+        LIST(RealmFieldType.LIST),
+//        LINKING_OBJECTS(RealmFieldType.LINKING_OBJECTS), // FIXME
+
+        // primitive lists
+        INTEGER_LIST(RealmFieldType.INTEGER_LIST),
+        BOOLEAN_LIST(RealmFieldType.BOOLEAN_LIST),
+        STRING_LIST(RealmFieldType.STRING_LIST),
+        BINARY_LIST(RealmFieldType.BINARY_LIST),
+        DATE_LIST(RealmFieldType.DATE_LIST),
+        FLOAT_LIST(RealmFieldType.FLOAT_LIST),
+        DOUBLE_LIST(RealmFieldType.DOUBLE_LIST),
 
         // Stetho Realmが勝手に定義した特別な値
-        UNKNOWN(-1);
+        UNKNOWN(null);
 
+        private final RealmFieldType realmFieldType;
         private final int nativeValue;
 
         StethoRealmFieldType(int nativeValue) {
+            this.realmFieldType = null;
             this.nativeValue = nativeValue;
+        }
+
+        StethoRealmFieldType(RealmFieldType realmFieldType) {
+            this.realmFieldType = realmFieldType;
+            this.nativeValue = realmFieldType == null ? -1 : realmFieldType.getNativeValue();
         }
 
         @SuppressWarnings("unused")
@@ -97,12 +116,14 @@ public class Database implements ChromeDevtoolsDomain {
             long limit,
             boolean ascendingOrder,
             byte[] defaultEncryptionKey,
-            Map<String, byte[]> encryptionKeys) {
-        this.realmPeerManager = new RealmPeerManager(packageName, filesProvider, defaultEncryptionKey, encryptionKeys);
+            Map<String, byte[]> encryptionKeys,
+            boolean isDeleteIfMigrationNeededEnabled) {
+        this.realmPeerManager = new RealmPeerManager(packageName, filesProvider, defaultEncryptionKey, encryptionKeys, isDeleteIfMigrationNeededEnabled);
         this.objectMapper = new ObjectMapper();
         this.withMetaTables = withMetaTables;
         this.limit = limit;
         this.ascendingOrder = ascendingOrder;
+        this.isDeleteIfMigrationNeededEnabled = isDeleteIfMigrationNeededEnabled;
     }
 
     @ChromeDevtoolsMethod
@@ -256,7 +277,7 @@ public class Database implements ChromeDevtoolsDomain {
                             }
                         }
                         break;
-                    case OLD_DATE:
+                    case UNSUPPORTED_DATE:
                     case DATE:
                         if (rowData.isNull(column)) {
                             flatList.add(NULL);
@@ -275,6 +296,24 @@ public class Database implements ChromeDevtoolsDomain {
                         // LIST never be null
                         flatList.add(formatList(rowData.getLinkList(column)));
                         break;
+//                  case LINKING_OBJECTS: // FIXME
+//                      // LINKING_OBJECTS never be null
+//                      flatList.add(formatList(rowData.getLinkList(column))); // TODO: verify how RowWrapper needs to load a linking_objects field
+//                      break;
+                    case INTEGER_LIST:
+                    case BOOLEAN_LIST:
+                    case DOUBLE_LIST:
+                    case STRING_LIST:
+                    case BINARY_LIST:
+                    case DATE_LIST:
+                    case FLOAT_LIST:
+                       if (rowData.isNullLink(column)) {
+                           flatList.add(NULL);
+                       } else {
+                           RealmFieldType columnType = table.getColumnType(column);
+                           flatList.add(formatValueList(rowData.getValueList(column, columnType), columnType));
+                       }
+                       break;
                     default:
                         flatList.add("unknown column type: " + rowData.getColumnType(column));
                         break;
@@ -360,12 +399,26 @@ public class Database implements ChromeDevtoolsDomain {
 
         final long size = linkList.size();
         for (long pos = 0; pos < size; pos++) {
+            if (pos != 0) {
+                sb.append(',');
+            }
             sb.append(linkList.getUncheckedRow(pos).getIndex());
-            sb.append(',');
         }
-        if (size != 0) {
-            // remove last ','
-            sb.setLength(sb.length() - 1);
+
+        sb.append("}");
+        return sb.toString();
+    }
+
+    private String formatValueList(OsList linkList, RealmFieldType columnType) {
+        final StringBuilder sb = new StringBuilder(columnType.name());
+        sb.append("{");
+
+        final long size = linkList.size();
+        for (long pos = 0; pos < size; pos++) {
+            if(pos != 0) {
+                sb.append(',');
+            }
+            sb.append(linkList.getValue(pos));
         }
 
         sb.append("}");
@@ -425,7 +478,7 @@ public class Database implements ChromeDevtoolsDomain {
                 return StethoRealmFieldType.UNSUPPORTED_MIXED;
             }
             if (name.equals("UNSUPPORTED_DATE")) {
-                return StethoRealmFieldType.OLD_DATE;
+                return StethoRealmFieldType.UNSUPPORTED_DATE;
             }
             if (name.equals("DATE")) {
                 return StethoRealmFieldType.DATE;
@@ -441,6 +494,30 @@ public class Database implements ChromeDevtoolsDomain {
             }
             if (name.equals("LIST")) {
                 return StethoRealmFieldType.LIST;
+            }
+//            if (name.equals("LINKING_OBJECTS")) { // FIXME
+//                return StethoRealmFieldType.LINKING_OBJECTS;
+//            }
+            if (name.equals("INTEGER_LIST")) {
+                return StethoRealmFieldType.INTEGER_LIST;
+            }
+            if (name.equals("BOOLEAN_LIST")) {
+                return StethoRealmFieldType.BOOLEAN_LIST;
+            }
+            if (name.equals("STRING_LIST")) {
+                return StethoRealmFieldType.STRING_LIST;
+            }
+            if (name.equals("BINARY_LIST")) {
+                return StethoRealmFieldType.BINARY_LIST;
+            }
+            if (name.equals("DATE_LIST")) {
+                return StethoRealmFieldType.DATE_LIST;
+            }
+            if (name.equals("FLOAT_LIST")) {
+                return StethoRealmFieldType.FLOAT_LIST;
+            }
+            if (name.equals("DOUBLE_LIST")) {
+                return StethoRealmFieldType.DOUBLE_LIST;
             }
             return StethoRealmFieldType.UNKNOWN;
         }
@@ -487,6 +564,10 @@ public class Database implements ChromeDevtoolsDomain {
 
         OsList getLinkList(long columnIndex) {
             return row.getModelList(columnIndex);
+        }
+
+        OsList getValueList(long columnIndex, RealmFieldType fieldType) {
+            return row.getValueList(columnIndex, fieldType);
         }
     }
 }
