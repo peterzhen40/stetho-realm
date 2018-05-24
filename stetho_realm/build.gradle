@@ -43,7 +43,7 @@ android {
 
 dependencies {
     compileOnly 'com.facebook.stetho:stetho:1.5.0'
-    compileOnly 'io.realm:realm-android-library:4.2.0'
+    compileOnly 'io.realm:realm-android-library:5.1.0'
     implementation fileTree(dir: 'libs', include: '*.jar')
 }
 
