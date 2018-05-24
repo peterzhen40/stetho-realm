@@ -6,7 +6,9 @@ gradle.properties
 build/
 *.iml
 !.idea/runConfigurations/*
-.idea/*.xml
+.idea/**/*.xml
+.idea/**/*.ser
+!.idea/dictionaries/zaki.xml
 .idea/.name
 .idea/copyright/
 .idea/libraries/
