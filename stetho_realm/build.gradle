@@ -1,28 +1,18 @@
-buildscript {
-    repositories {
-        jcenter()
-    }
-    dependencies {
-        classpath 'com.novoda:bintray-release:0.8.0'
-    }
-}
-
-//noinspection GroovyAssignabilityCheck
 apply plugin: 'com.android.library'
-apply plugin: 'com.novoda.bintray-release'
 
 android {
-    compileSdkVersion 26
-    buildToolsVersion "27.0.3"
+    compileSdkVersion rootProject.compileSdkVersion
 
     defaultConfig {
-        minSdkVersion 9
-        targetSdkVersion 26
-        versionCode 1000
-        versionName "2.3.0"
+        minSdkVersion rootProject.minSdkVersion
+        targetSdkVersion rootProject.targetSdkVersion
+        versionCode rootProject.versionCode
+        versionName rootProject.versionName
         consumerProguardFiles 'proguard-rules.pro'
-    }
 
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+    }
     buildTypes {
         release {
             minifyEnabled false
@@ -30,40 +20,17 @@ android {
         }
     }
 
-    compileOptions {
-        encoding = "UTF-8"
-        sourceCompatibility JavaVersion.VERSION_1_7
-        targetCompatibility JavaVersion.VERSION_1_7
-    }
-
     lintOptions {
         abortOnError false
+        warning 'InvalidPackage'
     }
 }
 
+
 dependencies {
+    api fileTree(dir: 'libs', include: ['*.jar'])
     compileOnly 'com.facebook.stetho:stetho:1.5.0'
     compileOnly 'io.realm:realm-android-library:5.1.0'
-    implementation fileTree(dir: 'libs', include: '*.jar')
 }
 
-//noinspection GroovyAssignabilityCheck
-apply plugin: 'maven-publish'
-//noinspection GroovyAssignabilityCheck
-apply from: '../deploy.gradle'
-
-//./gradlew clean build bintrayUpload -PbintrayUser=BINTRAY_USERNAME -PbintrayKey=BINTRAY_KEY -PdryRun=false
-publish {
-    userOrg = 'uphyca'
-    groupId = 'com.uphyca'
-    artifactId = 'stetho_realm'
-    version = '2.3.0'
-    description = 'Stetho-Realm is a Realm module for Stetho.'
-    website = 'https://github.com/uPhyca/stetho-realm'
-    issueTracker = 'https://github.com/uPhyca/stetho-realm/issues'
-    repository = 'https://github.com/uPhyca/stetho-realm.git'
-}
-
-tasks.withType(Javadoc) {
-    options.encoding = 'UTF-8'
-}
+apply from: 'bintray.gradle'
